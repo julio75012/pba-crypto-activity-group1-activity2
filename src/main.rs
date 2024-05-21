@@ -20,7 +20,20 @@ use aes::{
 const BLOCK_SIZE: usize = 16;
 
 fn main() {
-	todo!("Maybe this should be a library crate. TBD");
+    let plain_text: Vec<u8> = "Hello pba".chars().map(|c| c as u8).collect();
+    let key: [u8; 16] = [
+        1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8,
+    ];
+    let encrypted = ecb_encrypt(plain_text.clone(), key);
+
+    println!(
+        "the result of encrypting {:?} => {:?}",
+        plain_text.clone(),
+        encrypted
+    );
+
+    let decrypted = ecb_decrypt(encrypted, key);
+    println!("decrypted: {:?}", decrypted)
 }
 
 /// Simple AES encryption
@@ -111,12 +124,22 @@ fn un_pad(data: Vec<u8>) -> Vec<u8> {
 /// One good thing about this mode is that it is parallelizable. But to see why it is
 /// insecure look at: https://www.ubiqsecurity.com/wp-content/uploads/2022/02/ECB2.png
 fn ecb_encrypt(plain_text: Vec<u8>, key: [u8; 16]) -> Vec<u8> {
-	todo!()
+    group(pad(plain_text))
+        .into_iter()
+        .fold(Vec::new(), |mut cipher_text, block| {
+            cipher_text.extend_from_slice(&aes_encrypt(block, &key));
+            cipher_text
+        })
 }
 
 /// Opposite of ecb_encrypt.
 fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-	todo!()
+    group(cipher_text)
+        .into_iter()
+        .fold(Vec::new(), |mut plain_text, block| {
+            plain_text.extend_from_slice(&un_pad(aes_decrypt(block, &key).to_vec()));
+            plain_text
+        })
 }
 
 /// The next mode, which you can implement on your own is cipherblock chaining.
