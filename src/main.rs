@@ -10,17 +10,74 @@
 //! Seriously, ECB is NOT secure. Don't use it irl. We are implementing it here to understand _why_
 //! it is not secure and make the point that the most straight-forward approach isn't always the
 //! best, and can sometimes be trivially broken.
+use hex::encode;
+use sha2::{Digest, Sha256};
 
 use aes::{
-	cipher::{generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit},
-	Aes128,
+    cipher::{generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit},
+    Aes128,
 };
 
 ///We're using AES 128 which has 16-byte (128 bit) blocks.
 const BLOCK_SIZE: usize = 16;
 
 fn main() {
-    let plain_text: Vec<u8> = "Hello pba".chars().map(|c| c as u8).collect();
+    // Define the size of the vector
+    let size: usize = 300; // Arbitrary size
+
+    // Create a vector of u8 with incrementing integers using % 255 to avoid wrapping
+    let vec: Vec<u8> = (0..size).map(|i| (i % 255) as u8).collect();
+    let result = un_pad(&un_group(&group(&pad(&vec))));
+
+    println!(
+        "{}",
+        pad(&vec)
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
+    );
+
+    println!(
+        "{}",
+        &group(&pad(&vec))[0]
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
+    );
+
+	println!(
+        "{}",
+        &group(&pad(&vec))[1]
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
+    );
+
+	println!(
+        "{}",
+        &un_group(&group(&pad(&vec)))
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
+    );
+
+	println!(
+        "{}",
+        un_pad(&un_group(&group(&pad(&vec))))
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
+    );
+
+    println!("{}", hash_vec(&result) == hash_vec(&result));
+    println!("{}", hash_vec(&result) == hash_vec(&vec));
+
+	let plain_text: Vec<u8> = "Hello pba".chars().map(|c| c as u8).collect();
     let key: [u8; 16] = [
         1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8,
     ];
@@ -36,32 +93,47 @@ fn main() {
     println!("decrypted: {:?}", decrypted)
 }
 
+fn hash_vec(data: &Vec<u8>) -> String {
+    // Create a Sha256 hasher instance
+    let mut hasher = Sha256::new();
+
+    // Feed the data into the hasher
+    hasher.update(data);
+
+    // Retrieve the resulting hash
+    let result = hasher.finalize();
+
+    // Convert the result to a hexadecimal string
+    encode(result)
+>>>>>>> Stashed changes
+}
+
 /// Simple AES encryption
 /// Helper function to make the core AES block cipher easier to understand.
 fn aes_encrypt(data: [u8; BLOCK_SIZE], key: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
-	// Convert the inputs to the necessary data type
-	let mut block = GenericArray::from(data);
-	let key = GenericArray::from(*key);
+    // Convert the inputs to the necessary data type
+    let mut block = GenericArray::from(data);
+    let key = GenericArray::from(*key);
 
-	let cipher = Aes128::new(&key);
+    let cipher = Aes128::new(&key);
 
-	cipher.encrypt_block(&mut block);
+    cipher.encrypt_block(&mut block);
 
-	block.into()
+    block.into()
 }
 
 /// Simple AES encryption
 /// Helper function to make the core AES block cipher easier to understand.
 fn aes_decrypt(data: [u8; BLOCK_SIZE], key: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
-	// Convert the inputs to the necessary data type
-	let mut block = GenericArray::from(data);
-	let key = GenericArray::from(*key);
+    // Convert the inputs to the necessary data type
+    let mut block = GenericArray::from(data);
+    let key = GenericArray::from(*key);
 
-	let cipher = Aes128::new(&key);
+    let cipher = Aes128::new(&key);
 
-	cipher.decrypt_block(&mut block);
+    cipher.decrypt_block(&mut block);
 
-	block.into()
+    block.into()
 }
 
 /// Before we can begin encrypting our raw data, we need it to be a multiple of the
@@ -79,41 +151,52 @@ fn aes_decrypt(data: [u8; BLOCK_SIZE], key: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZ
 /// to later look at the last byte and remove part of the data. Instead, in this case, we add
 /// another entire block containing the block length in each byte. In our case,
 /// [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
-fn pad(mut data: Vec<u8>) -> Vec<u8> {
-	// When twe have a multiple the second term is 0
-	let number_pad_bytes = BLOCK_SIZE - data.len() % BLOCK_SIZE;
+fn pad(data: &Vec<u8>) -> Vec<u8> {
+    // When twe have a multiple the second term is 0
+    let number_pad_bytes = BLOCK_SIZE - data.len() % BLOCK_SIZE;
 
-	for _ in 0..number_pad_bytes {
-		data.push(number_pad_bytes as u8);
-	}
+    let mut res = data.clone();
 
-	data
+    for _ in 0..number_pad_bytes {
+        res.push(number_pad_bytes as u8);
+    }
+
+    res
 }
 
 /// Groups the data into BLOCK_SIZE blocks. Assumes the data is already
 /// a multiple of the block size. If this is not the case, call `pad` first.
-fn group(data: Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
-	let mut blocks = Vec::new();
-	let mut i = 0;
-	while i < data.len() {
-		let mut block: [u8; BLOCK_SIZE] = Default::default();
-		block.copy_from_slice(&data[i..i + BLOCK_SIZE]);
-		blocks.push(block);
+fn group(data: &Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
+    let mut blocks = Vec::new();
+    let mut i = 0;
+    while i < data.len() {
+        let mut block: [u8; BLOCK_SIZE] = Default::default();
+        block.copy_from_slice(&data[i..i + BLOCK_SIZE]);
+        blocks.push(block);
 
-		i += BLOCK_SIZE;
-	}
+        i += BLOCK_SIZE;
+    }
 
-	blocks
+    blocks
 }
 
 /// Does the opposite of the group function
-fn un_group(blocks: Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
-	todo!()
+fn un_group(blocks: &Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
+    let mut data = Vec::new();
+    for block in blocks {
+        data.extend_from_slice(block);
+    }
+    data
 }
 
 /// Does the opposite of the pad function.
-fn un_pad(data: Vec<u8>) -> Vec<u8> {
-	todo!()
+fn un_pad(data: &Vec<u8>) -> Vec<u8> {
+    let number_pad_bytes: usize = data.last().unwrap_or(&0).clone().into();
+
+    let mut res = data.clone();
+
+    res.truncate( data.len() - number_pad_bytes);
+    res
 }
 
 /// The first mode we will implement is the Electronic Code Book, or ECB mode.
@@ -124,22 +207,30 @@ fn un_pad(data: Vec<u8>) -> Vec<u8> {
 /// One good thing about this mode is that it is parallelizable. But to see why it is
 /// insecure look at: https://www.ubiqsecurity.com/wp-content/uploads/2022/02/ECB2.png
 fn ecb_encrypt(plain_text: Vec<u8>, key: [u8; 16]) -> Vec<u8> {
+<<<<<<< Updated upstream
     group(pad(plain_text))
         .into_iter()
         .fold(Vec::new(), |mut cipher_text, block| {
             cipher_text.extend_from_slice(&aes_encrypt(block, &key));
             cipher_text
         })
+=======
+    todo!()
+>>>>>>> Stashed changes
 }
 
 /// Opposite of ecb_encrypt.
 fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
+<<<<<<< Updated upstream
     group(cipher_text)
         .into_iter()
         .fold(Vec::new(), |mut plain_text, block| {
             plain_text.extend_from_slice(&un_pad(aes_decrypt(block, &key).to_vec()));
             plain_text
         })
+=======
+    todo!()
+>>>>>>> Stashed changes
 }
 
 /// The next mode, which you can implement on your own is cipherblock chaining.
@@ -155,13 +246,13 @@ fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 /// very first block because it doesn't have a previous block. Typically this IV
 /// is inserted as the first block of ciphertext.
 fn cbc_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-	// Remember to generate a random initialization vector for the first block.
+    // Remember to generate a random initialization vector for the first block.
 
-	todo!()
+    todo!()
 }
 
 fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-	todo!()
+    todo!()
 }
 
 /// Another mode which you can implement on your own is counter mode.
@@ -181,10 +272,10 @@ fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 /// Once again, you will need to generate a random nonce which is 64 bits long. This should be
 /// inserted as the first block of the ciphertext.
 fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-	// Remember to generate a random nonce
-	todo!()
+    // Remember to generate a random nonce
+    todo!()
 }
 
 fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-	todo!()
+    todo!()
 }
