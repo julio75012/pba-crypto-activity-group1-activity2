@@ -297,6 +297,8 @@ fn xor(b1: String, b2: String) -> Result<String, &'static str> {
 fn getV(counter: u64, nonce: [u8; 8]) -> [u8; BLOCK_SIZE] {
     let mut counter_transfo: [u8; 8] = [0; 8];
     let mut counter_copy = counter;
+	//the following writes the counter in base 128 = 2^8 in order to fit it in an array of 8 u8.
+	//for instance 300 = 2 * 128^1 + 44 * 128^0 becomes [0,0,0,0,0,0,2,44]
     for i in 0..=7 {
         let last_digit_in_base128 = counter_copy % 128;
         counter_transfo[7-i] = last_digit_in_base128 as u8;
