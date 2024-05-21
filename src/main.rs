@@ -47,7 +47,7 @@ fn main() {
     //         .join(", ")
     // );
 
-	// println!(
+    // println!(
     //     "{}",
     //     &group(&pad(&vec))[1]
     //         .iter()
@@ -56,7 +56,7 @@ fn main() {
     //         .join(", ")
     // );
 
-	// println!(
+    // println!(
     //     "{}",
     //     &un_group(&group(&pad(&vec)))
     //         .iter()
@@ -65,7 +65,7 @@ fn main() {
     //         .join(", ")
     // );
 
-	// println!(
+    // println!(
     //     "{}",
     //     un_pad(&un_group(&group(&pad(&vec))))
     //         .iter()
@@ -77,7 +77,7 @@ fn main() {
     println!("{}", hash_vec(&result) == hash_vec(&result));
     println!("{}", hash_vec(&result) == hash_vec(&vec));
 
-	let plain_text: Vec<u8> = "Hello pba".chars().map(|c| c as u8).collect();
+    let plain_text: Vec<u8> = "Hello pba".chars().map(|c| c as u8).collect();
     let key: [u8; 16] = [
         1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8,
     ];
@@ -194,7 +194,7 @@ fn un_pad(data: &Vec<u8>) -> Vec<u8> {
 
     let mut res = data.clone();
 
-    res.truncate( data.len() - number_pad_bytes);
+    res.truncate(data.len() - number_pad_bytes);
     res
 }
 
@@ -269,4 +269,69 @@ fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 
 fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
     todo!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_group() {
+        // Test case 1: Data is a multiple of BLOCK_SIZE
+        let data = vec![
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 30, 31,
+        ];
+        let expected_blocks = vec![
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [
+                16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+            ],
+        ];
+        assert_eq!(group(&data), expected_blocks);
+    }
+
+    #[test]
+    fn test_group_with_padding() {
+        // Test case: Data length is not a multiple of BLOCK_SIZE, pad required
+        let data: Vec<u8> = vec![
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, // 17 bytes
+        ];
+        let padded_data: Vec<u8> = pad(&data);
+        let expected_padded_data: Vec<[u8; 16]> = vec![
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [
+                16, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+            ],
+        ];
+        assert_eq!(group(&padded_data), expected_padded_data);
+    }
+
+    #[test]
+    fn test_un_group() {
+        // Test case: Data is ungrouped correctly
+        let blocks = vec![
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [
+                16, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+            ],
+        ];
+        let expected_data = vec![
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 15, 15, 15, 15, 15, 15, 15,
+            15, 15, 15, 15, 15, 15, 15, 15,
+        ];
+
+        assert_eq!(un_group(&blocks), expected_data);
+    }
+
+    #[test]
+    fn test_un_pad() {
+        // Test case: Data is unpadded correctly
+        let padded_data: Vec<u8> = vec![
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 15, 15, 15, 15, 15, 15, 15,
+            15, 15, 15, 15, 15, 15, 15, 15,
+        ];
+        let expected_data: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+
+        assert_eq!(un_pad(&padded_data), expected_data);
+    }
 }
