@@ -29,50 +29,50 @@ fn main() {
     let vec: Vec<u8> = (0..size).map(|i| (i % 255) as u8).collect();
     let result = un_pad(&un_group(&group(&pad(&vec))));
 
-    println!(
-        "{}",
-        pad(&vec)
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(", ")
-    );
+    // println!(
+    //     "{}",
+    //     pad(&vec)
+    //         .iter()
+    //         .map(|x| x.to_string())
+    //         .collect::<Vec<String>>()
+    //         .join(", ")
+    // );
 
-    println!(
-        "{}",
-        &group(&pad(&vec))[0]
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(", ")
-    );
+    // println!(
+    //     "{}",
+    //     &group(&pad(&vec))[0]
+    //         .iter()
+    //         .map(|x| x.to_string())
+    //         .collect::<Vec<String>>()
+    //         .join(", ")
+    // );
 
-	println!(
-        "{}",
-        &group(&pad(&vec))[1]
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(", ")
-    );
+	// println!(
+    //     "{}",
+    //     &group(&pad(&vec))[1]
+    //         .iter()
+    //         .map(|x| x.to_string())
+    //         .collect::<Vec<String>>()
+    //         .join(", ")
+    // );
 
-	println!(
-        "{}",
-        &un_group(&group(&pad(&vec)))
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(", ")
-    );
+	// println!(
+    //     "{}",
+    //     &un_group(&group(&pad(&vec)))
+    //         .iter()
+    //         .map(|x| x.to_string())
+    //         .collect::<Vec<String>>()
+    //         .join(", ")
+    // );
 
-	println!(
-        "{}",
-        un_pad(&un_group(&group(&pad(&vec))))
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(", ")
-    );
+	// println!(
+    //     "{}",
+    //     un_pad(&un_group(&group(&pad(&vec))))
+    //         .iter()
+    //         .map(|x| x.to_string())
+    //         .collect::<Vec<String>>()
+    //         .join(", ")
+    // );
 
     println!("{}", hash_vec(&result) == hash_vec(&result));
     println!("{}", hash_vec(&result) == hash_vec(&vec));
