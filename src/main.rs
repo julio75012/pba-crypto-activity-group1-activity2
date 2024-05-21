@@ -105,7 +105,6 @@ fn hash_vec(data: &Vec<u8>) -> String {
 
     // Convert the result to a hexadecimal string
     encode(result)
->>>>>>> Stashed changes
 }
 
 /// Simple AES encryption
@@ -207,30 +206,22 @@ fn un_pad(data: &Vec<u8>) -> Vec<u8> {
 /// One good thing about this mode is that it is parallelizable. But to see why it is
 /// insecure look at: https://www.ubiqsecurity.com/wp-content/uploads/2022/02/ECB2.png
 fn ecb_encrypt(plain_text: Vec<u8>, key: [u8; 16]) -> Vec<u8> {
-<<<<<<< Updated upstream
-    group(pad(plain_text))
+    group(&pad(&plain_text))
         .into_iter()
         .fold(Vec::new(), |mut cipher_text, block| {
             cipher_text.extend_from_slice(&aes_encrypt(block, &key));
             cipher_text
         })
-=======
-    todo!()
->>>>>>> Stashed changes
 }
 
 /// Opposite of ecb_encrypt.
 fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-<<<<<<< Updated upstream
-    group(cipher_text)
+    group(&cipher_text)
         .into_iter()
         .fold(Vec::new(), |mut plain_text, block| {
-            plain_text.extend_from_slice(&un_pad(aes_decrypt(block, &key).to_vec()));
+            plain_text.extend_from_slice(&un_pad(&aes_decrypt(block, &key).to_vec()));
             plain_text
         })
-=======
-    todo!()
->>>>>>> Stashed changes
 }
 
 /// The next mode, which you can implement on your own is cipherblock chaining.
