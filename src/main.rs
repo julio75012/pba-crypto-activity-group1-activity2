@@ -11,7 +11,8 @@
 //! it is not secure and make the point that the most straight-forward approach isn't always the
 //! best, and can sometimes be trivially broken.
 use hex::encode;
-use sha2::{Digest, Sha256};
+use rand::Rng;
+use sha2::{digest::block_buffer::Error, Digest, Sha256};
 
 use aes::{
     cipher::{generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit},
@@ -90,7 +91,11 @@ fn main() {
     );
 
     let decrypted = ecb_decrypt(encrypted, key);
-    println!("decrypted: {:?}", decrypted)
+    println!("decrypted: {:?}", decrypted);
+
+    // CTR algo
+
+    let nonce: [u8; 8] = rand::thread_rng().gen::<[u8; 8]>();
 }
 
 fn hash_vec(data: &Vec<u8>) -> String {
@@ -262,9 +267,57 @@ fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 ///
 /// Once again, you will need to generate a random nonce which is 64 bits long. This should be
 /// inserted as the first block of the ciphertext.
+///
+
+fn xor(b1: String, b2: String) -> Result<String, &'static str> {
+    if b1.len() != b2.len() {
+        return Err("cannot xor different lengths");
+    }
+    let length = b1.len();
+    let mut result = String::new();
+
+    for i in 0..length {
+        let c1 = b1.chars().nth(i).unwrap();
+        let c2 = b2.chars().nth(i).unwrap();
+
+        if c1 == c2 {
+            result.push('0');
+        } else {
+            result.push('1');
+        }
+    }
+
+    for _i in 0..length {
+        result.push('0');
+    }
+
+    Ok(result)
+}
+
+fn getV(counter: u64, nonce: [u8; 8]) -> [u8; BLOCK_SIZE] {
+    let mut counter_transfo: [u8; 8] = [0; 8];
+    let mut counter_copy = counter;
+    for i in 0..=7 {
+        let last_digit_in_base128 = counter_copy % 128;
+        counter_transfo[7-i] = last_digit_in_base128 as u8;
+        counter_copy -= last_digit_in_base128;
+        counter_copy /= 128;
+    }
+
+    let mut result: [u8; 16] = [0; 16];
+    result[..8].copy_from_slice(&nonce);
+    result[8..].copy_from_slice(&counter_transfo);
+    result
+}
+
 fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
     // Remember to generate a random nonce
-    todo!()
+    group(&pad(&plain_text))
+        .into_iter()
+        .fold(Vec::new(), |mut cipher_text, block| {
+            cipher_text.extend_from_slice(&aes_encrypt(block, &key));
+            cipher_text
+        })
 }
 
 fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {

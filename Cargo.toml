@@ -9,3 +9,4 @@ edition = "2021"
 aes = "0.8.1"
 sha2 = "0.10.2"  # or the latest version
 hex = "0.4.3"  # or the latest version
+rand = "0.8"
