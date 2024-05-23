@@ -18,99 +18,10 @@ use aes::{
     cipher::{generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit},
     Aes128,
 };
+fn main() {}
 
 ///We're using AES 128 which has 16-byte (128 bit) blocks.
 const BLOCK_SIZE: usize = 16;
-
-fn main() {
-    // Define the size of the vector
-    let size: usize = 300; // Arbitrary size
-
-    // Create a vector of u8 with incrementing integers using % 255 to avoid wrapping
-    let vec: Vec<u8> = (0..size).map(|i| (i % 255) as u8).collect();
-    let result = un_pad(&un_group(&group(&pad(&vec))));
-
-    // println!(
-    //     "{}",
-    //     pad(&vec)
-    //         .iter()
-    //         .map(|x| x.to_string())
-    //         .collect::<Vec<String>>()
-    //         .join(", ")
-    // );
-
-    // println!(
-    //     "{}",
-    //     &group(&pad(&vec))[0]
-    //         .iter()
-    //         .map(|x| x.to_string())
-    //         .collect::<Vec<String>>()
-    //         .join(", ")
-    // );
-
-    // println!(
-    //     "{}",
-    //     &group(&pad(&vec))[1]
-    //         .iter()
-    //         .map(|x| x.to_string())
-    //         .collect::<Vec<String>>()
-    //         .join(", ")
-    // );
-
-    // println!(
-    //     "{}",
-    //     &un_group(&group(&pad(&vec)))
-    //         .iter()
-    //         .map(|x| x.to_string())
-    //         .collect::<Vec<String>>()
-    //         .join(", ")
-    // );
-
-    // println!(
-    //     "{}",
-    //     un_pad(&un_group(&group(&pad(&vec))))
-    //         .iter()
-    //         .map(|x| x.to_string())
-    //         .collect::<Vec<String>>()
-    //         .join(", ")
-    // );
-
-    println!("{}", hash_vec(&result) == hash_vec(&result));
-    println!("{}", hash_vec(&result) == hash_vec(&vec));
-
-    let plain_text: Vec<u8> = "Hello pba".chars().map(|c| c as u8).collect();
-    let key: [u8; 16] = [
-        1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8, 1u8, 2u8, 3u8, 4u8,
-    ];
-    let encrypted = ecb_encrypt(plain_text.clone(), key);
-
-    println!(
-        "the result of encrypting {:?} => {:?}",
-        plain_text.clone(),
-        encrypted
-    );
-
-    let decrypted = ecb_decrypt(encrypted, key);
-    println!("decrypted: {:?}", decrypted);
-
-    // CTR algo
-
-    let nonce: [u8; 8] = rand::thread_rng().gen::<[u8; 8]>();
-}
-
-fn hash_vec(data: &Vec<u8>) -> String {
-    // Create a Sha256 hasher instance
-    let mut hasher = Sha256::new();
-
-    // Feed the data into the hasher
-    hasher.update(data);
-
-    // Retrieve the resulting hash
-    let result = hasher.finalize();
-
-    // Convert the result to a hexadecimal string
-    encode(result)
-}
 
 /// Simple AES encryption
 /// Helper function to make the core AES block cipher easier to understand.
@@ -155,22 +66,20 @@ fn aes_decrypt(data: [u8; BLOCK_SIZE], key: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZ
 /// to later look at the last byte and remove part of the data. Instead, in this case, we add
 /// another entire block containing the block length in each byte. In our case,
 /// [16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
-fn pad(data: &Vec<u8>) -> Vec<u8> {
-    // When twe have a multiple the second term is 0
+fn pad(mut data: Vec<u8>) -> Vec<u8> {
+    // When we have a multiple the second term is 0
     let number_pad_bytes = BLOCK_SIZE - data.len() % BLOCK_SIZE;
 
-    let mut res = data.clone();
-
     for _ in 0..number_pad_bytes {
-        res.push(number_pad_bytes as u8);
+        data.push(number_pad_bytes as u8);
     }
 
-    res
+    data
 }
 
 /// Groups the data into BLOCK_SIZE blocks. Assumes the data is already
 /// a multiple of the block size. If this is not the case, call `pad` first.
-fn group(data: &Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
+fn group(data: Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
     let mut blocks = Vec::new();
     let mut i = 0;
     while i < data.len() {
@@ -185,16 +94,16 @@ fn group(data: &Vec<u8>) -> Vec<[u8; BLOCK_SIZE]> {
 }
 
 /// Does the opposite of the group function
-fn un_group(blocks: &Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
+fn ungroup(blocks: Vec<[u8; BLOCK_SIZE]>) -> Vec<u8> {
     let mut data = Vec::new();
     for block in blocks {
-        data.extend_from_slice(block);
+        data.extend_from_slice(&block);
     }
     data
 }
 
 /// Does the opposite of the pad function.
-fn un_pad(data: &Vec<u8>) -> Vec<u8> {
+fn unpad(data: Vec<u8>) -> Vec<u8> {
     let number_pad_bytes: usize = data.last().unwrap_or(&0).clone().into();
 
     let mut res = data.clone();
@@ -202,6 +111,27 @@ fn un_pad(data: &Vec<u8>) -> Vec<u8> {
     res.truncate(data.len() - number_pad_bytes);
     res
 }
+
+// START Custom Helpers
+fn xor_blocks(block1: &[u8; BLOCK_SIZE], block2: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
+    let mut result: [u8; BLOCK_SIZE] = [0u8; BLOCK_SIZE];
+    for i in 0..BLOCK_SIZE {
+        result[i] = block1[i] ^ block2[i];
+    }
+    result
+}
+
+fn increase_counter(vector: &mut [u8; 16]) {
+    let mut counter = [0u8; 8];
+    counter.copy_from_slice(&vector[8..16]);
+
+    let mut value = u64::from_be_bytes(counter);
+    value += 1;
+
+    let incremented_bytes = value.to_be_bytes();
+    vector[8..16].copy_from_slice(&incremented_bytes);
+}
+// END Custom Helpers
 
 /// The first mode we will implement is the Electronic Code Book, or ECB mode.
 /// Warning: THIS MODE IS NOT SECURE!!!!
@@ -211,22 +141,28 @@ fn un_pad(data: &Vec<u8>) -> Vec<u8> {
 /// One good thing about this mode is that it is parallelizable. But to see why it is
 /// insecure look at: https://www.ubiqsecurity.com/wp-content/uploads/2022/02/ECB2.png
 fn ecb_encrypt(plain_text: Vec<u8>, key: [u8; 16]) -> Vec<u8> {
-    group(&pad(&plain_text))
+    let padded_text = pad(plain_text);
+    let blocks = group(padded_text);
+
+    let cipher_blocks: Vec<[u8; BLOCK_SIZE]> = blocks
         .into_iter()
-        .fold(Vec::new(), |mut cipher_text, block| {
-            cipher_text.extend_from_slice(&aes_encrypt(block, &key));
-            cipher_text
-        })
+        .map(|block| aes_encrypt(block, &key))
+        .collect();
+
+    ungroup(cipher_blocks)
 }
 
 /// Opposite of ecb_encrypt.
 fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    group(&cipher_text)
+    let blocks = group(cipher_text);
+
+    let plain_blocks: Vec<[u8; BLOCK_SIZE]> = blocks
         .into_iter()
-        .fold(Vec::new(), |mut plain_text, block| {
-            plain_text.extend_from_slice(&un_pad(&aes_decrypt(block, &key).to_vec()));
-            plain_text
-        })
+        .map(|block| aes_decrypt(block, &key))
+        .collect();
+
+    let padded_text = ungroup(plain_blocks);
+    unpad(padded_text)
 }
 
 /// The next mode, which you can implement on your own is cipherblock chaining.
@@ -243,12 +179,48 @@ fn ecb_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 /// is inserted as the first block of ciphertext.
 fn cbc_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
     // Remember to generate a random initialization vector for the first block.
+    let padded_text = pad(plain_text);
+    let blocks = group(padded_text);
 
-    todo!()
+    let mut iv = [0u8; BLOCK_SIZE];
+    rand::thread_rng().try_fill(&mut iv).unwrap();
+
+    let mut cipher_blocks: Vec<[u8; BLOCK_SIZE]> = Vec::new();
+    let mut previous_block = iv;
+
+    for block in blocks {
+        let xor_block = xor_blocks(&block, &previous_block);
+        let cipher_block = aes_encrypt(xor_block, &key);
+        cipher_blocks.push(cipher_block);
+        previous_block = cipher_block;
+    }
+
+    let mut result = Vec::from(iv);
+    result.extend(ungroup(cipher_blocks));
+
+    result
 }
 
 fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    todo!()
+    let iv: [u8; BLOCK_SIZE] = cipher_text[0..BLOCK_SIZE]
+        .try_into()
+        .expect("Invalid IV length");
+    let cipher_blocks = group(cipher_text[BLOCK_SIZE..].to_vec());
+
+    let mut plain_blocks: Vec<[u8; BLOCK_SIZE]> = Vec::new();
+    let mut previous_block = iv;
+
+    for cipher_block in cipher_blocks {
+        let decrypted_block = aes_decrypt(cipher_block, &key);
+        let xor_block = xor_blocks(&decrypted_block, &previous_block);
+        plain_blocks.push(xor_block);
+        previous_block = cipher_block;
+    }
+
+    let mut plain_text = ungroup(plain_blocks);
+    plain_text = unpad(plain_text);
+
+    plain_text
 }
 
 /// Another mode which you can implement on your own is counter mode.
@@ -268,62 +240,53 @@ fn cbc_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
 /// Once again, you will need to generate a random nonce which is 64 bits long. This should be
 /// inserted as the first block of the ciphertext.
 ///
+fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
+    // Remember to generate a random nonce
+    let padded_text = pad(plain_text);
+    let blocks = group(padded_text);
 
-fn xor(b1: String, b2: String) -> Result<String, &'static str> {
-    if b1.len() != b2.len() {
-        return Err("cannot xor different lengths");
-    }
-    let length = b1.len();
-    let mut result = String::new();
+    let mut nonce = [0u8; BLOCK_SIZE];
+    rand::thread_rng().try_fill(&mut nonce).unwrap();
 
-    for i in 0..length {
-        let c1 = b1.chars().nth(i).unwrap();
-        let c2 = b2.chars().nth(i).unwrap();
+    let mut vector = [0u8; BLOCK_SIZE];
+    vector[..8].copy_from_slice(&nonce[..8]);
 
-        if c1 == c2 {
-            result.push('0');
-        } else {
-            result.push('1');
-        }
-    }
+    let mut cipher_blocks: Vec<[u8; BLOCK_SIZE]> = Vec::new();
+    let mut result = Vec::from(vector);
 
-    for _i in 0..length {
-        result.push('0');
+    for block in blocks {
+        let cipher_vector = aes_encrypt(vector, &key);
+        let cipher_block = xor_blocks(&cipher_vector, &block);
+        cipher_blocks.push(cipher_block);
+        increase_counter(&mut vector)
     }
 
-    Ok(result)
-}
+    result.extend(ungroup(cipher_blocks));
 
-fn getV(counter: u64, nonce: [u8; 8]) -> [u8; BLOCK_SIZE] {
-    let mut counter_transfo: [u8; 8] = [0; 8];
-    let mut counter_copy = counter;
-	//the following writes the counter in base 128 = 2^8 in order to fit it in an array of 8 u8.
-	//for instance 300 = 2 * 128^1 + 44 * 128^0 becomes [0,0,0,0,0,0,2,44]
-    for i in 0..=7 {
-        let last_digit_in_base128 = counter_copy % 128;
-        counter_transfo[7-i] = last_digit_in_base128 as u8;
-        counter_copy -= last_digit_in_base128;
-        counter_copy /= 128;
-    }
-
-    let mut result: [u8; 16] = [0; 16];
-    result[..8].copy_from_slice(&nonce);
-    result[8..].copy_from_slice(&counter_transfo);
     result
 }
 
-fn ctr_encrypt(plain_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    // Remember to generate a random nonce
-    group(&pad(&plain_text))
-        .into_iter()
-        .fold(Vec::new(), |mut cipher_text, block| {
-            cipher_text.extend_from_slice(&aes_encrypt(block, &key));
-            cipher_text
-        })
-}
-
 fn ctr_decrypt(cipher_text: Vec<u8>, key: [u8; BLOCK_SIZE]) -> Vec<u8> {
-    todo!()
+    let cipher_vector: [u8; BLOCK_SIZE] = cipher_text[0..BLOCK_SIZE]
+        .try_into()
+        .expect("Invalid IV length");
+    let mut vector = cipher_vector;
+
+    let cipher_blocks = group(cipher_text[BLOCK_SIZE..].to_vec());
+
+    let mut plain_blocks: Vec<[u8; BLOCK_SIZE]> = Vec::new();
+
+    for cipher_block in cipher_blocks {
+        let decrypted_plaintext = aes_encrypt(vector, &key);
+        let plaintext = xor_blocks(&decrypted_plaintext, &cipher_block);
+        plain_blocks.push(plaintext);
+        increase_counter(&mut vector)
+    }
+
+    let mut plain_text = ungroup(plain_blocks);
+    plain_text = unpad(plain_text);
+
+    plain_text
 }
 
 #[cfg(test)]
@@ -342,7 +305,7 @@ mod tests {
                 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
             ],
         ];
-        assert_eq!(group(&data), expected_blocks);
+        assert_eq!(group(data), expected_blocks);
     }
 
     #[test]
@@ -351,14 +314,14 @@ mod tests {
         let data: Vec<u8> = vec![
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, // 17 bytes
         ];
-        let padded_data: Vec<u8> = pad(&data);
+        let padded_data: Vec<u8> = pad(data);
         let expected_padded_data: Vec<[u8; 16]> = vec![
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
             [
                 16, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
             ],
         ];
-        assert_eq!(group(&padded_data), expected_padded_data);
+        assert_eq!(group(padded_data), expected_padded_data);
     }
 
     #[test]
@@ -375,7 +338,7 @@ mod tests {
             15, 15, 15, 15, 15, 15, 15, 15,
         ];
 
-        assert_eq!(un_group(&blocks), expected_data);
+        assert_eq!(ungroup(blocks), expected_data);
     }
 
     #[test]
@@ -387,6 +350,6 @@ mod tests {
         ];
         let expected_data: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
-        assert_eq!(un_pad(&padded_data), expected_data);
+        assert_eq!(unpad(padded_data), expected_data);
     }
 }
